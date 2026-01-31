@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 
+
 def _blur(noise, k=5):
     # простой box blur без зависимостей
     w = torch.ones(1, 1, k, k, device=noise.device) / (k * k)
@@ -15,6 +16,9 @@ def add_shot_noise(x, lam=30.0):
     xq = (x * lam).clamp(min=0)
     y = torch.poisson(xq) / lam
     return y.clamp(0,1)
+
+def add_gaussian_noise(x):
+    return x + torch.rand_like(x) * 0.4 - 0.2
 
 def add_canon_like_noise(x):
     # x: [B,3,H,W] in [0,1]
