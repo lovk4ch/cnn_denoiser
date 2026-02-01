@@ -10,7 +10,7 @@ from torchvision.transforms.v2.functional import to_pil_image
 from dataset import ImageDataset
 from dncnn import Denoiser
 from noise import add_canon_like_noise, add_gaussian_noise
-from utils import to_image
+from utils import to_image, tensor_to_jpg
 
 TRAIN = True
 
@@ -42,7 +42,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = Denoiser()
-    if model_file.exists() and TRAIN:
+    if model_file.exists() and not TRAIN:
         model.load_state_dict(torch.load(model_file, map_location=device))
         print("✔️️ Model weights loaded from disk.")
     else:
@@ -50,18 +50,18 @@ def main():
     model.to(device)
 
     criterion = nn.MSELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=4e-4)
+    optim = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     if TRAIN:
         index = 1
         model.train()
-        noise = torch.zeros(1, 3, 640, 640)
+        noise = torch.zeros(1, 3, 512, 512)
         noise = add_gaussian_noise(noise)
 
         for epoch in range(5):
             for batch in train_loader:
                 batch = batch.to(device)
-                noisy = (batch + noise).clamp(0, 1)
+                noisy = (batch + noise).clamp(-1, 1)
 
                 base_noise = noisy - batch
                 res_noise = model(noisy)
@@ -79,6 +79,9 @@ def main():
                 # --- gain: во сколько раз модель лучше noisy ---
                 gain = mse_noisy / (mse_pred + 1e-8)
 
+                optim.zero_grad()
+                loss.backward()
+
                 # --- градиенты ---
                 grad_norm = 0.0
                 for p in model.parameters():
@@ -86,8 +89,6 @@ def main():
                         grad_norm += p.grad.detach().pow(2).sum().item()
                 grad_norm = grad_norm ** 0.5
 
-                optim.zero_grad()
-                loss.backward()
                 optim.step()
 
                 print("res_noise abs mean:", res_noise.abs().mean().item(),
@@ -102,10 +103,11 @@ def main():
 
                 # print(f"epoch={epoch}, loss={loss.item():.6f}")
 
-                to_pil_image(to_image(batch)).save(f"data/noisy/{index}_1_gt.jpg")
-                to_pil_image(to_image(noisy)).save(f"data/noisy/{index}_2_noisy.jpg")
-                to_pil_image(to_image(res_noise, bias=True)).save(f"data/noisy/{index}_3_res_noise.jpg")
-                to_pil_image(to_image(res_noise - base_noise, bias=True)).save(f"data/noisy/{index}_4_loss.jpg")
+                if index == 1:
+                    tensor_to_jpg(batch, f"batch.jpg")
+                    tensor_to_jpg(noisy, f"test.jpg")
+                tensor_to_jpg(res_noise, f"data/noisy/res_noise_{index}.jpg", normalize=True)
+                tensor_to_jpg(res_noise - base_noise, f"data/noisy/res_loss_{index}.jpg", normalize=True)
 
                 index += 1
 
@@ -113,13 +115,15 @@ def main():
             print("Model state saved successfully")
 
     else:
-        image = Image.open("data/test.jpg").convert('RGB')
-        noisy = transform(image).unsqueeze(0)
+        image = Image.open("test.jpg").convert('RGB')
+        noisy = transform(image).unsqueeze(0).to(device)
+        noisy = noisy * 2 - 1
 
         model.eval()
         with torch.no_grad():
-            out = model(noisy.to(device)).clamp(0.0, 1.0)
-            res = torch.cat([(noisy - out).clamp(0, 1)], dim=3).squeeze(0).cpu()
+            out = model(noisy)
+            res = (noisy - out).clamp(-1, 1).squeeze(0)
+            res = (res + 1) / 2
             to_pil_image(res).save("res.jpg")
 
 if __name__ == "__main__":

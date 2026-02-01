@@ -8,7 +8,7 @@ class Denoiser(nn.Module):
         in_channels: int = 3,
         out_channels: int = 3,
         features: int = 32,
-        num_blocks: int = 4,
+        num_blocks: int = 3,
         use_norm: bool = False,
     ):
         super().__init__()
