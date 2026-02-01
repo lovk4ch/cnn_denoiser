@@ -10,7 +10,7 @@ from torchvision.transforms.functional import resize
 class ImageDataset(Dataset):
     def __init__(self, root, crop_size=512, samples_per_epoch=100, transform=transforms.ToTensor()):
         self.paths = [p for p in Path(root).iterdir()
-                       if p.suffix.lower() in {'.jpg', '.jpeg'}]
+                       if p.suffix.lower() in {'.png', '.jpg', '.jpeg'}]
         self.crop_size = crop_size
         self.samples_per_epoch = samples_per_epoch
         self.transform = transform

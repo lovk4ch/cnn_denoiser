@@ -5,14 +5,13 @@ from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.transforms.v2.functional import to_pil_image
 
 from dataset import ImageDataset
 from dncnn import Denoiser
 from noise import add_canon_like_noise, add_gaussian_noise
-from utils import to_image, tensor_to_jpg
+from utils import tensor_to_jpg
 
-TRAIN = True
+TRAIN = False
 
 model_path = Path("models/")
 model_path.mkdir(parents=True, exist_ok=True)
@@ -42,7 +41,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = Denoiser()
-    if model_file.exists() and not TRAIN:
+    if model_file.exists():
         model.load_state_dict(torch.load(model_file, map_location=device))
         print("✔️️ Model weights loaded from disk.")
     else:
@@ -50,7 +49,7 @@ def main():
     model.to(device)
 
     criterion = nn.MSELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optim = torch.optim.Adam(model.parameters(), lr=4e-4)
 
     if TRAIN:
         index = 1
@@ -58,7 +57,7 @@ def main():
         noise = torch.zeros(1, 3, 512, 512)
         noise = add_gaussian_noise(noise)
 
-        for epoch in range(5):
+        for epoch in range(15):
             for batch in train_loader:
                 batch = batch.to(device)
                 noisy = (batch + noise).clamp(-1, 1)
@@ -104,7 +103,7 @@ def main():
                 # print(f"epoch={epoch}, loss={loss.item():.6f}")
 
                 if index == 1:
-                    tensor_to_jpg(batch, f"batch.jpg")
+                    tensor_to_jpg(batch, f"basic.jpg")
                     tensor_to_jpg(noisy, f"test.jpg")
                 tensor_to_jpg(res_noise, f"data/noisy/res_noise_{index}.jpg", normalize=True)
                 tensor_to_jpg(res_noise - base_noise, f"data/noisy/res_loss_{index}.jpg", normalize=True)
@@ -116,15 +115,19 @@ def main():
 
     else:
         image = Image.open("test.jpg").convert('RGB')
-        noisy = transform(image).unsqueeze(0).to(device)
-        noisy = noisy * 2 - 1
+        image = transform(image).unsqueeze(0).to(device)
+        image = image * 2 - 1
+
+        basic = Image.open("basic.jpg").convert('RGB')
+        basic = transform(basic).unsqueeze(0).to(device)
+        basic = basic * 2 - 1
 
         model.eval()
         with torch.no_grad():
-            out = model(noisy)
-            res = (noisy - out).clamp(-1, 1).squeeze(0)
-            res = (res + 1) / 2
-            to_pil_image(res).save("res.jpg")
+            out = model(image)
+            res = (image - out).clamp(-1, 1)
+            res = torch.cat([basic, image, res], dim=3)
+            tensor_to_jpg(res, "res.jpg")
 
 if __name__ == "__main__":
     main()
