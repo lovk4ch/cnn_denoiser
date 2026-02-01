@@ -2,12 +2,33 @@ import torch
 from torch import nn
 
 
+class ResBlock(nn.Module):
+    def __init__(self, features: int, use_norm: bool = False):
+        super().__init__()
+        layers = [
+            nn.Conv2d(features, features, 3, padding=1, bias=True),
+        ]
+        if use_norm:
+            layers.append(nn.GroupNorm(8, features))
+        layers.append(nn.ReLU(inplace=True))
+
+        layers.append(nn.Conv2d(features, features, 3, padding=1, bias=True))
+        if use_norm:
+            layers.append(nn.GroupNorm(8, features))
+
+        self.net = nn.Sequential(*layers)
+        self.act = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        return self.act(x + self.net(x))   # skip + активация
+
+
 class Denoiser(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
         out_channels: int = 3,
-        features: int = 32,
+        features: int = 64,
         num_blocks: int = 3,
         use_norm: bool = False,
     ):
@@ -20,13 +41,16 @@ class Denoiser(nn.Module):
             features,
             kernel_size=3,
             padding=1,
+            bias=True,
         )
 
         # --- общая активация ---
         # храним как поле, чтобы не создавать каждый раз
         self.act = nn.ReLU(inplace=True)
 
+        '''
         # --- тело сети ---
+        
         # последовательность одинаковых conv-блоков
         blocks = []
         for i in range(num_blocks):
@@ -44,8 +68,13 @@ class Denoiser(nn.Module):
             block.append(self.act)
             blocks.append(nn.Sequential(*block))
 
-        # регистрация слоёв в PyTorch
         self.blocks = nn.ModuleList(blocks)
+        '''
+
+        # регистрация слоёв в PyTorch
+        self.blocks = nn.ModuleList([
+            ResBlock(features, use_norm) for _ in range(num_blocks)
+        ])
 
         # --- выходной слой ---
         # возвращает тензор той же формы, что и вход
@@ -54,11 +83,11 @@ class Denoiser(nn.Module):
             out_channels,
             kernel_size=3,
             padding=1,
+            bias=True,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.act(self.conv_in(x))
         for block in self.blocks:
             x = block(x)
-        x = self.conv_out(x)
-        return x
+        return self.conv_out(x)
