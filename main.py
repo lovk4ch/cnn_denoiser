@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import torch
@@ -9,31 +10,25 @@ from tqdm import tqdm
 
 from dataset import ImageDataset
 from dncnn import Denoiser
-from noise import add_canon_like_noise, add_gaussian_noise
-from utils import tensor_to_jpg
-
+from noise import add_noise
+from utils import tensor_to_jpg, last_file_index
 
 TRAIN = True
-
-model_path = Path("models/")
-model_path.mkdir(parents=True, exist_ok=True)
-model_file = model_path / "denoiser.pth"
-
-out_path = Path("data/noisy")
-out_path.mkdir(parents=True, exist_ok=True)
+CLEAN_CACHE = True
 
 transform = transforms.Compose([
-    transforms.ToTensor(),
+    transforms.ToTensor()
 ])
 
 train_dataset = ImageDataset(
-    root="data/train",
-    transform=transform
+    root="data/src",
+    transform=transform,
+    crop_size=[128, 256, 384],
 )
 
 train_loader = DataLoader(
     dataset=train_dataset,
-    batch_size=4,
+    batch_size=1,
     shuffle=True,
     num_workers=4,
     drop_last=False,
@@ -41,6 +36,20 @@ train_loader = DataLoader(
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model_path = Path("models")
+    res_path = Path("data/res")
+    train_path = Path("data/train")
+
+    if CLEAN_CACHE:
+        if train_path.exists():
+            shutil.rmtree(train_path)
+
+    model_path.mkdir(parents=True, exist_ok=True)
+    model_file = model_path / "denoiser.pth"
+
+    res_path.mkdir(parents=True, exist_ok=True)
+    train_path.mkdir(parents=True, exist_ok=True)
 
     model = Denoiser()
     if model_file.exists():
@@ -50,19 +59,22 @@ def main():
         print("⚠️ Model config doesn't exist, start training from scratch.")
     model.to(device)
 
-    criterion = nn.MSELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=4e-4)
+    criterion = nn.L1Loss()
+    optim = torch.optim.Adam(model.parameters(), lr=5e-4)
 
     if TRAIN:
+        last_epoch = last_file_index(res_path)
         index = 1
         model.train()
 
-        for epoch in range(400):
+        for epoch in range(last_epoch, 500):
             train_bar = tqdm(train_loader, desc=f"\033[94m{index}")
 
             for batch in train_bar:
                 batch = batch.to(device)
-                noisy = add_gaussian_noise(batch).clamp(-1, 1)
+                noisy = add_noise(batch)
+                batch = (batch * 2 - 1)
+                noisy = (noisy * 2 - 1)
 
                 base_noise = noisy - batch
                 res_noise = model(noisy)
@@ -93,26 +105,21 @@ def main():
                 optim.step()
 
                 train_bar.set_postfix(
-                    mse_noisy=f"{mse_noisy:.4f}",
                     mse_pred=f"{mse_pred:.4f}",
                     gain=f"{gain:.2f}",
                     grad_norm=f"{grad_norm:.3e}",
                     iter=f"{index}"
                 )
 
-                # print(f"epoch={epoch}, loss={loss.item():.6f}")
-
-                if index % 100 == 1:
-                    '''
-                    tensor_to_jpg(batch, f"data/noisy/basic_{index}.jpg")
-                    tensor_to_jpg(noisy, f"data/noisy/noisy_{index}.jpg")
-                    tensor_to_jpg(res_noise, f"data/noisy/res_noise_{index}.jpg", normalize=True)
-                    tensor_to_jpg(res_noise - base_noise, f"data/noisy/res_loss_{index}.jpg", normalize=True)
-                    '''
+                # '''
+                if index % 1 == 0:
+                    step_res = torch.cat([batch[0], noisy[0], (res_noise - base_noise)[0]], dim=2)
+                    tensor_to_jpg(step_res, f"data/train/step_res_{index}.jpg")
+                # '''
 
                 index += 1
 
-            evaluate(model, device)
+            evaluate(model, device, epoch)
             model.train()
 
             torch.save(model.state_dict(), model_file)
@@ -122,23 +129,16 @@ def main():
         evaluate(model, device)
 
 
-def evaluate(model, device):
+def evaluate(model, device, epoch=1):
     image = Image.open("test.jpg").convert('RGB')
     image = transform(image).unsqueeze(0).to(device)
     image = image * 2 - 1
 
-    '''
-    basic = Image.open("basic.jpg").convert('RGB')
-    basic = transform(basic).unsqueeze(0).to(device)
-    basic = basic * 2 - 1
-    '''
-
-    model.evaluate()
+    model.eval()
     with torch.no_grad():
         out = model(image)
         res = (image - out).clamp(-1, 1)
-        # res = torch.cat([basic, image, res], dim=3)
-        tensor_to_jpg(res, "res.jpg")
+        tensor_to_jpg(res, f"data/res/res_ep_{epoch + 1}.jpg")
 
 
 if __name__ == "__main__":
