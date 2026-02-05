@@ -1,0 +1,29 @@
+model:
+  name: denoiser_v1
+  channels: 64
+  depth: 5
+
+train:
+  train_mode: True
+  epochs: 50
+  batch_size: 1
+  lr: 0.001
+  test_images: 5
+  loss: l1    # l1 | mse | huber | smooth_l1
+  cache_every: 25
+  crop_sizes: [128, 256, 384]
+
+data:
+  cache_dir: data/cache/
+  res_dir: data/res/
+  test_dir: data/test/
+  train_dir: data/train/
+
+  model_dir: models/
+  model_file: denoiser.pth
+  model_checkpoint: checkpoint.pth
+
+global:
+  clean_cache: True
+  device: cuda
+  log_color: "\033[94m"

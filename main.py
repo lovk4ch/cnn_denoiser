@@ -12,67 +12,94 @@ from tqdm import tqdm
 from dataset import ImageDataset
 from dncnn import Denoiser
 from noise import add_noise
-from utils import tensor_to_jpg, last_file_index, beep
+from utils import tensor_to_jpg, last_file_index, beep, load_config, get_criterion
 
-TRAIN = True
-CLEAN_CACHE = True
 
 transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
 train_dataset = ImageDataset(
-    root="data/src",
+    root="data/train",
     transform=transform,
     crop_size=[128, 256, 384],
 )
 
+test_dataset = ImageDataset(
+    root="data/test",
+    transform=transform,
+    crop_size=[512],
+    samples_per_epoch=1,
+)
+
 train_loader = DataLoader(
     dataset=train_dataset,
+    pin_memory=True,
     batch_size=1,
     shuffle=True,
     num_workers=4,
     drop_last=False,
 )
 
-def main():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+test_loader = DataLoader(
+    dataset=test_dataset,
+    pin_memory=True,
+    batch_size=1,
+    shuffle=True,
+    num_workers=4,
+    drop_last=False,
+)
 
-    # basic_noise_pair(train_loader, device)
+
+def main():
+    cfg = load_config()
+
+    device = torch.device(cfg["global"]["device"] if torch.cuda.is_available() else 'cpu')
+
+    # basic_noise_pair(test_loader, device)
     # return
 
-    model_path = Path("models")
-    res_path = Path("data/res")
-    train_path = Path("data/train")
+    model_dir = Path(cfg["data"]["model_dir"])
+    model_dir.mkdir(parents=True, exist_ok=True)
 
-    if CLEAN_CACHE:
-        if train_path.exists():
-            shutil.rmtree(train_path)
+    train_dir = Path(cfg["data"]["train_dir"])
+    train_dir.mkdir(parents=True, exist_ok=True)
 
-    model_path.mkdir(parents=True, exist_ok=True)
-    model_file = model_path / "denoiser.pth"
+    test_dir = Path(cfg["data"]["test_dir"])
+    test_dir.mkdir(parents=True, exist_ok=True)
 
-    res_path.mkdir(parents=True, exist_ok=True)
-    train_path.mkdir(parents=True, exist_ok=True)
+    res_dir = Path(cfg["data"]["res_dir"])
+    res_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_dir = Path(cfg["data"]["cache_dir"])
+
+    if cfg["global"]["clean_cache"]:
+        shutil.rmtree(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_every = cfg["train"]["cache_every"]
+
+    model_file = model_dir / cfg["data"]["model_file"]
+    checkpoint_file = model_dir / cfg["data"]["model_checkpoint"]
 
     model = Denoiser()
     if model_file.exists():
-        model.load_state_dict(torch.load(model_file, map_location=device))
+        model.load_state_dict(torch.load(model_file, weights_only=True, map_location=device))
         print("✔️️ Model weights loaded from disk.")
     else:
         print("⚠️ Model config doesn't exist, start training from scratch.")
     model.to(device)
 
-    criterion = nn.L1Loss()
-    l1_model = sys.float_info.max
-    optim = torch.optim.Adam(model.parameters(), lr=1e-4)
+    criterion = get_criterion(cfg["train"])
+    g_loss = sys.float_info.max
+    optim = torch.optim.Adam(model.parameters(), lr=cfg["train"]["lr"])
 
-    if TRAIN:
+    if cfg["train"]["train_mode"]:
         model.train()
-        last_epoch = last_file_index(res_path)
+        last_epoch = last_file_index(res_dir)
         index = 1 + last_epoch * train_dataset.samples_per_epoch
 
-        for epoch in range(last_epoch + 1, 50):
+        for epoch in range(last_epoch + 1, cfg["train"]["epochs"] + 1):
             train_bar = tqdm(train_loader, desc=f"\033[94m{index}")
 
             for batch in train_bar:
@@ -84,7 +111,7 @@ def main():
                 base_noise = noisy - batch
                 res_noise = model(noisy)
 
-                # сумма квадратов разностей между пикселями картинок
+                # --- сумма квадратов разностей между пикселями картинок ---
                 loss = criterion(base_noise, res_noise)
 
                 # --- baseline: насколько noisy хуже clean ---
@@ -116,46 +143,65 @@ def main():
                     iter=f"{index}"
                 )
 
-                # '''
-                if index % 25 == 0:
+                if cache_every > 0 and index % cache_every == 0:
                     step_res = torch.cat([batch[0], noisy[0], (res_noise - base_noise)[0]], dim=2)
-                    tensor_to_jpg(step_res, f"data/train/step_res_{index}.jpg")
-                # '''
+                    tensor_to_jpg(step_res, f'{cfg["data"]["cache_dir"]}step_res_{index}.jpg')
 
                 index += 1
 
-            loss = evaluate(model, device, epoch)
+            loss = evaluate(model, device, cfg, criterion, epoch)
             model.train()
-
+            print()
             print(f"evaluate: epoch {epoch}, loss: {loss:.4f}")
-            if loss < l1_model:
+
+            # лучшая модель
+            if loss < g_loss:
                 torch.save(model.state_dict(), model_file)
-                l1_model = loss
-                print("Model state updated successfully.")
+                g_loss = loss
+                print("🌟 Best state")
+
+            # последняя модель
+            torch.save(model.state_dict(), checkpoint_file)
+            print("✔️️ Model checkpoint updated successfully.")
 
     else:
-        evaluate(model, device)
+        for _ in range(1, cfg["train"]["test_images"] + 1):
+            test_bar = tqdm(test_loader, desc=f"\033[94miteration {_}")
+            model.eval()
+
+            for batch in test_bar:
+                batch = batch.to(device)
+                batch = batch * 2 - 1
+
+                with torch.no_grad():
+                    pred_noise = model(batch)
+                    denoised = batch - pred_noise
+
+                    res = denoised.clamp(-1, 1)
+                    tensor_to_jpg(res, f'{cfg["data"]["res_dir"]}res_{_}.jpg')
 
     beep()
 
 
-def evaluate(model, device, epoch=1):
-    image_src = Image.open("basic.jpg").convert('RGB')
-    image_src = transform(image_src).unsqueeze(0).to(device)
-    image_src = image_src * 2 - 1
+def evaluate(model, device, cfg, criterion=nn.L1Loss(), epoch=1):
+    clean = transform(Image.open("basic.jpg").convert("RGB")).unsqueeze(0).to(device)
+    noisy = transform(Image.open("noisy.jpg").convert("RGB")).unsqueeze(0).to(device)
 
-    image_trn = Image.open("test.jpg").convert('RGB')
-    image_trn = transform(image_trn).unsqueeze(0).to(device)
-    image_trn = image_trn * 2 - 1
+    clean = clean * 2 - 1
+    noisy = noisy * 2 - 1
 
     model.eval()
     with torch.no_grad():
-        noise = model(image_trn)
-        res = image_trn - noise
-        loss = nn.L1Loss()(res, image_src)
-        res = res.clamp(-1, 1)
-        tensor_to_jpg(res, f"data/res/res_ep_{epoch}.jpg")
-    return loss
+        pred_noise = model(noisy)
+        denoised = noisy - pred_noise
+
+        loss = criterion(denoised, clean)
+
+        res = denoised.clamp(-1, 1)
+        res = torch.cat([clean, noisy, res], dim=3)
+        tensor_to_jpg(res, f'{cfg["data"]["res_dir"]}res_ep_{epoch}.jpg')
+
+    return loss.item()
 
 
 if __name__ == "__main__":
