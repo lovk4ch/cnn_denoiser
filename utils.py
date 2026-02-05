@@ -1,10 +1,17 @@
 import re
 from pathlib import Path
 
+import winsound
 from torchvision.transforms.v2.functional import to_pil_image
 
-from noise import add_artifacts_noise
+from noise import add_noise
 
+
+def beep():
+    winsound.PlaySound(
+        str(Path("notify.wav").resolve()),
+        winsound.SND_FILENAME
+    )
 
 def normalize(n):
     m = n.abs().amax(dim=(1, 2), keepdim=True) + 1e-8
@@ -29,7 +36,7 @@ def basic_noise_pair(loader, device):
     for image in loader:
         image = image.to(device)
         tensor_to_jpg(image, "basic.jpg", is_1x1=False)
-        image = add_artifacts_noise(image)
+        image = add_noise(image)
         image = image.clamp(0, 1)
         tensor_to_jpg(image, "test.jpg", is_1x1=False)
         break
@@ -38,7 +45,7 @@ def basic_noise_pair(loader, device):
 def last_file_index(path):
     files = [p for p in Path(path).iterdir() if p.is_file()]
     if not files:
-        return 1
+        return 0
 
     def num_key(p):
         m = re.search(r"\d+$", p.stem)

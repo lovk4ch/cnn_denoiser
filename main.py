@@ -1,4 +1,5 @@
 import shutil
+import sys
 from pathlib import Path
 
 import torch
@@ -11,7 +12,7 @@ from tqdm import tqdm
 from dataset import ImageDataset
 from dncnn import Denoiser
 from noise import add_noise
-from utils import tensor_to_jpg, last_file_index
+from utils import tensor_to_jpg, last_file_index, beep
 
 TRAIN = True
 CLEAN_CACHE = True
@@ -37,6 +38,9 @@ train_loader = DataLoader(
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    # basic_noise_pair(train_loader, device)
+    # return
+
     model_path = Path("models")
     res_path = Path("data/res")
     train_path = Path("data/train")
@@ -60,14 +64,15 @@ def main():
     model.to(device)
 
     criterion = nn.L1Loss()
-    optim = torch.optim.Adam(model.parameters(), lr=5e-4)
+    l1_model = sys.float_info.max
+    optim = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     if TRAIN:
-        last_epoch = last_file_index(res_path)
-        index = 1
         model.train()
+        last_epoch = last_file_index(res_path)
+        index = 1 + last_epoch * train_dataset.samples_per_epoch
 
-        for epoch in range(last_epoch, 500):
+        for epoch in range(last_epoch + 1, 50):
             train_bar = tqdm(train_loader, desc=f"\033[94m{index}")
 
             for batch in train_bar:
@@ -112,33 +117,45 @@ def main():
                 )
 
                 # '''
-                if index % 1 == 0:
+                if index % 25 == 0:
                     step_res = torch.cat([batch[0], noisy[0], (res_noise - base_noise)[0]], dim=2)
                     tensor_to_jpg(step_res, f"data/train/step_res_{index}.jpg")
                 # '''
 
                 index += 1
 
-            evaluate(model, device, epoch)
+            loss = evaluate(model, device, epoch)
             model.train()
 
-            torch.save(model.state_dict(), model_file)
-            print("Model state saved successfully")
+            print(f"evaluate: epoch {epoch}, loss: {loss:.4f}")
+            if loss < l1_model:
+                torch.save(model.state_dict(), model_file)
+                l1_model = loss
+                print("Model state updated successfully.")
 
     else:
         evaluate(model, device)
 
+    beep()
+
 
 def evaluate(model, device, epoch=1):
-    image = Image.open("test.jpg").convert('RGB')
-    image = transform(image).unsqueeze(0).to(device)
-    image = image * 2 - 1
+    image_src = Image.open("basic.jpg").convert('RGB')
+    image_src = transform(image_src).unsqueeze(0).to(device)
+    image_src = image_src * 2 - 1
+
+    image_trn = Image.open("test.jpg").convert('RGB')
+    image_trn = transform(image_trn).unsqueeze(0).to(device)
+    image_trn = image_trn * 2 - 1
 
     model.eval()
     with torch.no_grad():
-        out = model(image)
-        res = (image - out).clamp(-1, 1)
-        tensor_to_jpg(res, f"data/res/res_ep_{epoch + 1}.jpg")
+        noise = model(image_trn)
+        res = image_trn - noise
+        loss = nn.L1Loss()(res, image_src)
+        res = res.clamp(-1, 1)
+        tensor_to_jpg(res, f"data/res/res_ep_{epoch}.jpg")
+    return loss
 
 
 if __name__ == "__main__":
