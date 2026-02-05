@@ -1,6 +1,6 @@
-import random
 from pathlib import Path
 
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -8,7 +8,7 @@ from torchvision.transforms.functional import resize
 
 
 class ImageDataset(Dataset):
-    def __init__(self, root, crop_size=512, samples_per_epoch=100, transform=transforms.ToTensor()):
+    def __init__(self, root, crop_size=[256], samples_per_epoch=100, transform=transforms.ToTensor()):
         self.paths = [p for p in Path(root).iterdir()
                        if p.suffix.lower() in {'.png', '.jpg', '.jpeg'}]
         self.crop_size = crop_size
@@ -19,19 +19,20 @@ class ImageDataset(Dataset):
         return self.samples_per_epoch
 
     def __getitem__(self, index):
-        path = random.choice(self.paths)
+        path = self.paths[torch.randint(0, len(self.paths), (1,)).item()]
         image = Image.open(path).convert('RGB')
         image = self.transform(image)
 
         C, H, W = image.shape
-        P = self.crop_size
-        if H < P or W < P:
-            image = resize(image, [max(W, P), max(H, P)])
-            _, H, W = image.shape
+        P = self.crop_size[torch.randint(0, len(self.crop_size), (1,)).item()]
 
-        top = random.randint(0, H - P)
-        left = random.randint(0, W - P)
-        crop = image[:, top:top + P, left:left + P]
+        if P > 0:
+            if H < P or W < P:
+                image = resize(image, [max(W, P), max(H, P)])
+                _, H, W = image.shape
 
-        crop = crop * 2 - 1
-        return crop
+            top = torch.randint(0, H - P + 1, (1,)).item()
+            left = torch.randint(0, W - P + 1, (1,)).item()
+            image = image[:, top:top + P, left:left + P]
+
+        return image
