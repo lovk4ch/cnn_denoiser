@@ -29,7 +29,7 @@ class Denoiser(nn.Module):
         in_channels: int = 3,
         out_channels: int = 3,
         features: int = 64,
-        num_blocks: int = 3,
+        num_blocks: int = 5,
         use_norm: bool = False,
     ):
         super().__init__()
@@ -48,9 +48,8 @@ class Denoiser(nn.Module):
         # храним как поле, чтобы не создавать каждый раз
         self.act = nn.ReLU(inplace=True)
 
-        '''
         # --- тело сети ---
-        
+        # регистрация слоёв в PyTorch
         # последовательность одинаковых conv-блоков
         blocks = []
         for i in range(num_blocks):
@@ -59,7 +58,8 @@ class Denoiser(nn.Module):
                     features,
                     features,
                     kernel_size=3,
-                    padding=1)
+                    padding=2 if i == 2 else 1,
+                    dilation=2 if i == 2 else 1)
             ]
 
             if use_norm:
@@ -69,12 +69,12 @@ class Denoiser(nn.Module):
             blocks.append(nn.Sequential(*block))
 
         self.blocks = nn.ModuleList(blocks)
-        '''
 
-        # регистрация слоёв в PyTorch
+        '''
         self.blocks = nn.ModuleList([
             ResBlock(features, use_norm) for _ in range(num_blocks)
         ])
+        '''
 
         # --- выходной слой ---
         # возвращает тензор той же формы, что и вход
