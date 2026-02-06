@@ -82,7 +82,7 @@ def main():
     model_file = model_dir / cfg["data"]["model_file"]
     checkpoint_file = model_dir / cfg["data"]["model_checkpoint"]
 
-    model = Denoiser()
+    model = Denoiser(cfg["model"])
     if model_file.exists():
         model.load_state_dict(torch.load(model_file, weights_only=True, map_location=device))
         print("✔️️ Model weights loaded from disk.")

@@ -3,18 +3,18 @@ from torch import nn
 
 
 class ResBlock(nn.Module):
-    def __init__(self, features: int, use_norm: bool = False):
+    def __init__(self, use_norm: bool = False, cfg = None):
         super().__init__()
         layers = [
-            nn.Conv2d(features, features, 3, padding=1, bias=True),
+            nn.Conv2d(cfg["channels"], cfg["channels"], cfg["kernel_size"], padding=cfg["dilation"], bias=True),
         ]
         if use_norm:
-            layers.append(nn.GroupNorm(8, features))
+            layers.append(nn.GroupNorm(8, cfg["channels"]))
         layers.append(nn.ReLU(inplace=True))
 
-        layers.append(nn.Conv2d(features, features, 3, padding=1, bias=True))
+        layers.append(nn.Conv2d(cfg["channels"], cfg["channels"], 3, padding=1, bias=True))
         if use_norm:
-            layers.append(nn.GroupNorm(8, features))
+            layers.append(nn.GroupNorm(8, cfg["channels"]))
 
         self.net = nn.Sequential(*layers)
         self.act = nn.ReLU(inplace=True)
@@ -25,22 +25,23 @@ class ResBlock(nn.Module):
 
 class Denoiser(nn.Module):
     def __init__(
-        self,
-        in_channels: int = 3,
-        out_channels: int = 3,
-        features: int = 64,
-        num_blocks: int = 5,
-        use_norm: bool = False,
+        self, cfg
     ):
         super().__init__()
+
+        in_channels: int = 3
+        out_channels: int = 3
+        features: int = cfg["channels"]
+        depth: int = cfg["depth"]
+        use_norm: bool = False
 
         # --- входной слой ---
         # переводит изображение в пространство признаков
         self.conv_in = nn.Conv2d(
             in_channels,
             features,
-            kernel_size=3,
-            padding=1,
+            kernel_size=cfg["kernel_size"],
+            padding=cfg["dilation"][0],
             bias=True,
         )
 
@@ -52,14 +53,16 @@ class Denoiser(nn.Module):
         # регистрация слоёв в PyTorch
         # последовательность одинаковых conv-блоков
         blocks = []
-        for i in range(num_blocks):
+        for i in range(depth):
+
             block = [
                 nn.Conv2d(
                     features,
                     features,
-                    kernel_size=3,
-                    padding=2 if i == 2 else 1,
-                    dilation=2 if i == 2 else 1)
+                    kernel_size=cfg["kernel_size"],
+                    dilation=cfg["dilation"][i],
+                    padding=cfg["dilation"][i],
+                )
             ]
 
             if use_norm:
@@ -72,7 +75,7 @@ class Denoiser(nn.Module):
 
         '''
         self.blocks = nn.ModuleList([
-            ResBlock(features, use_norm) for _ in range(num_blocks)
+            ResBlock(use_norm, cfg) for _ in range(depth)
         ])
         '''
 
@@ -81,8 +84,8 @@ class Denoiser(nn.Module):
         self.conv_out = nn.Conv2d(
             features,
             out_channels,
-            kernel_size=3,
-            padding=1,
+            kernel_size=cfg["kernel_size"],
+            padding=cfg["dilation"][-1],
             bias=True,
         )
 

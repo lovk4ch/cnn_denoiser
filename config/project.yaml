@@ -2,6 +2,8 @@ model:
   name: denoiser_v1
   channels: 64
   depth: 5
+  kernel_size: 3
+  dilation: [1, 1, 1, 2, 1, 1, 1]
 
 train:
   train_mode: True
