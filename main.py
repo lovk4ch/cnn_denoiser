@@ -9,11 +9,10 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from dataset import ImageDataset
-from dncnn import Denoiser
-from noise import add_noise
-from utils import tensor_to_jpg, last_file_index, beep, load_config, get_criterion
-
+from src.dataset import ImageDataset
+from src.dncnn import Denoiser
+from src.noise import add_noise
+from src.utils import tensor_to_jpg, last_file_index, beep, load_config, get_criterion
 
 transform = transforms.Compose([
     transforms.ToTensor()
@@ -45,7 +44,7 @@ test_loader = DataLoader(
     dataset=test_dataset,
     pin_memory=True,
     batch_size=1,
-    shuffle=True,
+    shuffle=False,
     num_workers=4,
     drop_last=False,
 )
@@ -94,7 +93,7 @@ def main():
     g_loss = sys.float_info.max
     optim = torch.optim.Adam(model.parameters(), lr=cfg["train"]["lr"])
 
-    if cfg["train"]["train_mode"]:
+    if cfg["train"]["train_mode"] is True:
         model.train()
         last_epoch = last_file_index(res_dir)
         index = 1 + last_epoch * train_dataset.samples_per_epoch
