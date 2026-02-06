@@ -2,6 +2,7 @@ from pathlib import Path
 
 import torch
 from PIL import Image
+from sympy.core.random import shuffle
 from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms.functional import resize
@@ -19,7 +20,11 @@ class ImageDataset(Dataset):
         return self.samples_per_epoch
 
     def __getitem__(self, index):
-        path = self.paths[torch.randint(0, len(self.paths), (1,)).item()]
+        if shuffle:
+            path = self.paths[torch.randint(0, len(self.paths), (1,)).item()]
+        else:
+            path = self.paths[index]
+
         image = Image.open(path).convert('RGB')
         image = self.transform(image)
 
