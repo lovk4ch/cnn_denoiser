@@ -8,7 +8,7 @@ from torch import nn
 from torchvision.transforms.v2.functional import to_pil_image
 from torchvision.utils import make_grid
 
-from noise import add_noise
+from src.noise import add_noise
 
 
 def load_config(path="config/project.yaml"):
@@ -17,7 +17,7 @@ def load_config(path="config/project.yaml"):
 
 def beep():
     winsound.PlaySound(
-        str(Path("notify.wav").resolve()),
+        str(Path("../notify.wav").resolve()),
         winsound.SND_FILENAME
     )
 
