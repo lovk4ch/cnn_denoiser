@@ -1,17 +1,23 @@
-model:
-  name: denoiser_v1
+denoise:
+  name: denoise
   channels: 64
   depth: 5
   kernel_size: 3
   dilation: [1, 1, 1, 2, 1, 1, 1]
 
+restore:
+  name: restore
+  channels: 32
+  kernel_size: 3
+
 train:
-  train_mode: True
+  # denoise | restore | inference
+  mode: restore
   epochs: 50
   batch_size: 1
   lr: 0.001
-  test_images: 5
-  loss: l1    # l1 | mse | huber | smooth_l1
+  # l1 | mse | huber | smooth_l1
+  loss: l1
   cache_every: 25
   crop_sizes: [128, 256, 384]
 
@@ -20,10 +26,13 @@ data:
   res_dir: data/res/
   test_dir: data/test/
   train_dir: data/train/
-
   model_dir: models/
-  model_file: denoiser.pth
-  model_checkpoint: checkpoint.pth
+
+  restore_path: restore.pth
+  restore_checkpoint: restore_cpt.pth
+
+  denoise_path: denoise.pth
+  denoise_checkpoint: denoise_cpt.pth
 
 global:
   clean_cache: True

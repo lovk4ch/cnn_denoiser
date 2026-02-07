@@ -32,7 +32,7 @@ class ResBlock(nn.Module):
         return self.act(x + self.net(x))   # skip + activation
 
 
-class Denoiser(nn.Module):
+class Denoise(nn.Module):
     def __init__(self, cfg: dict | None = None):
         super().__init__()
         cfg = cfg or {}

@@ -10,9 +10,10 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.dataset import ImageDataset
-from src.dncnn import Denoiser
+from src.dncnn import Denoise
 from src.noise import add_noise
-from src.utils import tensor_to_jpg, last_file_index, beep, load_config, get_criterion
+from src.unet_restore import UNetRestore
+from src.utils import tensor_to_jpg, last_file_index, beep, load_config, get_criterion, grad
 
 transform = transforms.Compose([
     transforms.ToTensor()
@@ -21,7 +22,7 @@ transform = transforms.Compose([
 train_dataset = ImageDataset(
     root="data/train",
     transform=transform,
-    crop_size=[128, 256, 384],
+    crop_size=[512, 768, 1024],
 )
 
 test_dataset = ImageDataset(
@@ -51,8 +52,8 @@ test_loader = DataLoader(
 
 
 def main():
+    # --- загрузка конфигурации и настройка моделей ---
     cfg = load_config()
-
     device = torch.device(cfg["global"]["device"] if torch.cuda.is_available() else 'cpu')
 
     # basic_noise_pair(test_loader, device)
@@ -75,112 +76,127 @@ def main():
     if cfg["global"]["clean_cache"]:
         shutil.rmtree(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-
     cache_every = cfg["train"]["cache_every"]
 
-    model_file = model_dir / cfg["data"]["model_file"]
-    checkpoint_file = model_dir / cfg["data"]["model_checkpoint"]
+    denoise_checkpoint = model_dir / cfg["data"]["denoise_checkpoint"]
+    denoise_path = model_dir / cfg["data"]["denoise_path"]
+    denoise = Denoise(cfg["denoise"]).to(device)
+    load_weights(denoise, device, denoise_path)
+    optim_d = torch.optim.Adam(denoise.parameters(), lr=cfg["train"]["lr"])
 
-    model = Denoiser(cfg["model"])
-    if model_file.exists():
-        model.load_state_dict(torch.load(model_file, weights_only=True, map_location=device))
-        print("✔️️ Model weights loaded from disk.")
-    else:
-        print("⚠️ Model config doesn't exist, start training from scratch.")
-    model.to(device)
+    restore_checkpoint = model_dir / cfg["data"]["restore_checkpoint"]
+    restore_path = model_dir / cfg["data"]["restore_path"]
+    restore = UNetRestore(cfg["restore"]).to(device)
+    load_weights(restore, device, restore_path)
+    optim_r = torch.optim.Adam(restore.parameters(), lr=cfg["train"]["lr"])
 
     criterion = get_criterion(cfg["train"])
     g_loss = sys.float_info.max
-    optim = torch.optim.Adam(model.parameters(), lr=cfg["train"]["lr"])
+    mode = cfg["train"]["mode"]
 
-    if cfg["train"]["train_mode"] is True:
-        model.train()
-        last_epoch = last_file_index(res_dir)
-        index = 1 + last_epoch * train_dataset.samples_per_epoch
+    # --- настройка режимов ---
+    if mode not in {"denoise", "restore", "inference"}:
+        raise ValueError(f"Unknown mode: {mode}")
 
-        for epoch in range(last_epoch + 1, cfg["train"]["epochs"] + 1):
-            train_bar = tqdm(train_loader, desc=f"\033[94m{index}")
+    data_loader = None
 
-            for batch in train_bar:
-                batch = batch.to(device)
-                noisy = add_noise(batch)
-                batch = (batch * 2 - 1)
-                noisy = (noisy * 2 - 1)
+    if mode == "denoise":
+        data_loader = train_loader
+        denoise.train()
 
+    if mode == "restore":
+        data_loader = train_loader
+        denoise.eval()
+        for p in denoise.parameters():
+            p.requires_grad_(False)
+        restore.train()
+
+    if mode == "inference":
+        data_loader = test_loader
+        denoise.eval()
+        for p in denoise.parameters():
+            p.requires_grad_(False)
+        restore.eval()
+        for p in restore.parameters():
+            p.requires_grad_(False)
+
+    # --- обучение ---
+    last_epoch = last_file_index(res_dir)
+    index = 1 + last_epoch * getattr(data_loader.dataset, "samples_per_epoch", 100)
+
+    for epoch in range(last_epoch + 1, cfg["train"]["epochs"] + 1):
+        bar = tqdm(data_loader, desc=f"\033[94m{index}")
+
+        for batch in bar:
+            batch = batch.to(device)    # [0..1]
+            noisy = add_noise(batch)    # [0..1]
+            clean = (batch * 2 - 1)     # [-1..1]
+            noisy = (noisy * 2 - 1)     # [-1..1]
+
+            denoised = None
+            restored = None
+
+            if mode == "denoise":
                 base_noise = noisy - batch
-                res_noise = model(noisy)
-
-                # --- сумма квадратов разностей между пикселями картинок ---
+                res_noise = denoise(noisy)
+                denoised = (noisy - res_noise).clamp(-1, 1)
                 loss = criterion(base_noise, res_noise)
+                print(denoised.shape)
 
-                # --- baseline: насколько noisy хуже clean ---
-                with torch.no_grad():
-                    mse_noisy = criterion(noisy, batch).item()
-
-                # --- основной loss ---
-                mse_pred = loss.item()
-
-                # --- gain: во сколько раз модель лучше noisy ---
-                gain = mse_noisy / (mse_pred + 1e-8)
-
-                optim.zero_grad()
+                optim_d.zero_grad()
                 loss.backward()
+                optim_d.step()
 
-                # --- градиенты ---
-                grad_norm = 0.0
-                for p in model.parameters():
-                    if p.grad is not None:
-                        grad_norm += p.grad.detach().pow(2).sum().item()
-                grad_norm = grad_norm ** 0.5
+            if mode == "restore":
+                with torch.no_grad():
+                    res_noise = denoise(noisy)
+                    denoised = (noisy - res_noise).clamp(-1, 1)
 
-                optim.step()
+                restored = restore(denoised)
+                loss = criterion(restored, clean)
 
-                train_bar.set_postfix(
-                    mse_pred=f"{mse_pred:.4f}",
-                    gain=f"{gain:.2f}",
-                    grad_norm=f"{grad_norm:.3e}",
-                    iter=f"{index}"
-                )
+                optim_r.zero_grad()
+                loss.backward()
+                optim_r.step()
 
+            if mode == "inference":
+                with torch.no_grad():
+                    res_noise = denoise(noisy)
+                    denoised = (noisy - res_noise).clamp(-1, 1)
+                    restored = restore(denoised)
+                    loss = criterion(restored, clean)
+
+            bar.set_postfix(
+                grad_denoise=f"{grad(denoise):.3e}",
+                grad_restore=f"{grad(restore):.3e}",
+                iter=f"{index}",
+                loss=f"{loss.item()}"
+            )
+
+            if index % 25 == 0 or mode == "inference":
+                cache = [clean[0], noisy[0]]
+                if denoised is not None:
+                    cache.append(denoised[0])
+                if restored is not None:
+                    cache.append(restored[0])
                 if cache_every > 0 and index % cache_every == 0:
-                    step_res = torch.cat([batch[0], noisy[0], (res_noise - base_noise)[0]], dim=2)
+                    step_res = torch.cat(cache, dim=2)
                     tensor_to_jpg(step_res, f'{cfg["data"]["cache_dir"]}step_res_{index}.jpg')
 
-                index += 1
+            index += 1
 
-            loss = evaluate(model, device, cfg, criterion, epoch)
-            model.train()
-            print()
-            print(f"evaluate: epoch {epoch}, loss: {loss:.4f}")
+        '''
+        loss = evaluate(denoise, device, cfg, criterion, epoch)
+        denoise.train()
+        print()
+        print(f"evaluate: epoch {epoch}, loss: {loss:.4f}")
+        '''
 
-            # лучшая модель
-            if loss < g_loss:
-                torch.save(model.state_dict(), model_file)
-                g_loss = loss
-                print("🌟 Best state")
-
-            # последняя модель
-            torch.save(model.state_dict(), checkpoint_file)
-            print("✔️️ Model checkpoint updated successfully.")
-
-    else:
-        for _ in range(1, cfg["train"]["test_images"] + 1):
-            test_bar = tqdm(test_loader, desc=f"\033[94miteration {_}")
-            model.eval()
-
-            for batch in test_bar:
-                batch = batch.to(device)
-                batch = batch * 2 - 1
-
-                with torch.no_grad():
-                    pred_noise = model(batch)
-                    denoised = batch - pred_noise
-
-                    res = denoised.clamp(-1, 1)
-                    tensor_to_jpg(res, f'{cfg["data"]["res_dir"]}res_{_}.jpg')
+        torch.save(denoise.state_dict(), denoise_path)
+        torch.save(restore.state_dict(), restore_path)
+        print("✔️️ Model checkpoint updated successfully.")
 
     beep()
-
 
 def evaluate(model, device, cfg, criterion=nn.L1Loss(), epoch=1):
     clean = transform(Image.open("basic.jpg").convert("RGB")).unsqueeze(0).to(device)
@@ -197,10 +213,17 @@ def evaluate(model, device, cfg, criterion=nn.L1Loss(), epoch=1):
         loss = criterion(denoised, clean)
 
         res = denoised.clamp(-1, 1)
-        res = torch.cat([clean, noisy, res], dim=3)
+        # res = torch.cat([clean, noisy, res], dim=3)
         tensor_to_jpg(res, f'{cfg["data"]["res_dir"]}res_ep_{epoch}.jpg')
 
     return loss.item()
+
+def load_weights(model, device, path):
+    if path.exists():
+        model.load_state_dict(torch.load(path, weights_only=True, map_location=device))
+        print(f"✔️️ Model {path.name} weights loaded from disk.")
+    else:
+        print(f"⚠️ Model {path.name} config doesn't exist, start training from scratch.")
 
 
 if __name__ == "__main__":

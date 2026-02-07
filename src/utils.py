@@ -21,6 +21,13 @@ def beep():
         winsound.SND_FILENAME
     )
 
+def grad(model):
+    grad_norm = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            grad_norm += p.grad.detach().pow(2).sum().item()
+    return grad_norm ** 0.5
+
 def normalize(n):
     m = n.abs().amax(dim=(1, 2), keepdim=True) + 1e-8
     n = (n / m) * 0.5 + 0.5
