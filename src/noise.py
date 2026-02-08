@@ -52,7 +52,7 @@ def blotch_noise_like(x, scale_range=(0.06, 0.18), blur_k_range=(0, 5)):
     return n
 
 def add_noise_mix(x):
-    # x01: [B,3,H,W] in [0,1]
+    # x: [B,3,H,W] in [0,1]
     device = x.device
 
     # мелкий
@@ -127,7 +127,6 @@ def _ycbcr_to_rgb(x):
     g = y - 0.714*cr - 0.344*cb
     return torch.cat([r,g,b], dim=1)
 
-@torch.no_grad
 def add_noise(x):
     """
     x: [B,3,H,W] in [0,1]
@@ -175,8 +174,7 @@ def add_noise(x):
     x = add_noise_mix(x)
     return x.clamp(0, 1)
 
-@torch.no_grad
-def add_artifacts_noise(x):
+def add_compression(x):
     """
     x: [B,3,H,W] in [0,1]
     return: degraded in [0,1]
@@ -185,8 +183,10 @@ def add_artifacts_noise(x):
     B,_,H,W = x.shape
     device = x.device
 
+    x = (x + 1) / 2
+
     # 1) лёгкая потеря деталей: blur + down/up (имитирует ресайз+компрессию)
-    if torch.rand(1, device=device) < 0.8:
+    if torch.rand(1, device=device) < 0.7:
         k = int(torch.randint(3, 9, (1,), device=device).item())
         sigma = float(torch.empty(1, device=device).uniform_(0.6, 1.8).item())
         x = _gauss_blur(x, k=k, sigma=sigma)
@@ -206,4 +206,5 @@ def add_artifacts_noise(x):
         ycc = torch.cat([Y, CbCr], dim=1)
         x = _ycbcr_to_rgb(ycc)
 
-    return x.clamp(0,1)
+    x = x * 2 - 1
+    return x.clamp(-1,1)

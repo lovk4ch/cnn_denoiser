@@ -1,5 +1,11 @@
+from pathlib import Path
+from typing import Tuple
+
 import torch
-from torch import nn
+from torch import nn, Tensor
+
+from src.noise import add_noise
+from src.utils import get_criterion
 
 
 class ResBlock(nn.Module):
@@ -114,3 +120,99 @@ class Denoise(nn.Module):
         for block in self.blocks:
             x = block(x)
         return self.conv_out(x)
+
+class DenoiseTrainer:
+    def __init__(self, cfg: dict | None = None, device: torch.device = None):
+        super().__init__()
+        self.cfg = cfg or {}
+
+        self._grad = None
+        self._loss = None
+
+        train = cfg.get("train")
+        data = cfg.get("data")
+        model_dir = Path(data.get("model_dir"))
+
+        self.TRAIN_MODE = train.get("mode") == "denoise"
+
+        self.model_checkpoint = model_dir / data.get("denoise_checkpoint")
+        self.model_path = model_dir / data.get("denoise_path")
+        self.model = Denoise(cfg.get("denoise")).to(device)
+        self.criterion = get_criterion(cfg["train"])
+        self.optim = torch.optim.Adam(self.model.parameters(), lr=train.get("lr"))
+
+        self.load_weights()
+
+        if self.TRAIN_MODE:
+            self.model.train()
+        else:
+            self.model.eval()
+            for p in self.model.parameters():
+                p.requires_grad_(False)
+
+    @property
+    def loss(self):
+        return self._loss
+
+    @property
+    def grad(self):
+        grad_norm = 0.0
+        for p in self.model.parameters():
+            if p.grad is not None:
+                grad_norm += p.grad.detach().pow(2).sum().item()
+        return grad_norm ** 0.5
+
+    def __call__(self, batch: Tensor) -> Tuple[Tensor, Tensor]:
+        # +[0..1]
+        with torch.no_grad():
+            noisy = add_noise(batch)
+        # [-1..1]
+        batch = (batch * 2 - 1)
+        # [-1..1]
+        noisy = (noisy * 2 - 1)
+
+        if self.TRAIN_MODE:
+            base_noise = noisy - batch
+            res_noise = self.model(noisy)
+            clean = (noisy - res_noise).clamp(-1, 1)
+            loss = self.criterion(base_noise, res_noise)
+
+            self.optim.zero_grad(set_to_none=True)
+            loss.backward()
+            self.optim.step()
+            self._loss = loss.item()
+
+        else:
+            with torch.no_grad():
+                res_noise = self.model(noisy)
+                clean = (noisy - res_noise).clamp(-1, 1)
+
+        return noisy, clean
+
+    def save(self):
+        try:
+            Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
+            torch.save(self.model.state_dict(), self.model_path)
+            print(f"✔️ Model checkpoint updated successfully.")
+        except Exception as e:
+            print(f"❌ Failed to save model: {e}")
+
+    def load_weights(self):
+        if not self.model_path.exists():
+            print(f"⚠️ Model {self.model_path.name} not found, training from scratch.")
+            return False
+
+        try:
+            state = torch.load(
+                self.model_path,
+                weights_only=True,
+                map_location=self.device
+            )
+            self.model.load_state_dict(state)
+            print(f"✔️ Model {self.model_path.name} weights loaded.")
+            return True
+
+        except Exception as e:
+            print(f"❌ Failed to load weights: {e}")
+            print(f"⚠️ Training from scratch.")
+            return False
