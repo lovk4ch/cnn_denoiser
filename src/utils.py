@@ -4,11 +4,10 @@ from pathlib import Path
 import torch
 import winsound
 import yaml
+from matplotlib import pyplot as plt
 from torch import nn
 from torchvision.transforms.v2.functional import to_pil_image
 from torchvision.utils import make_grid
-
-from src.noise import add_noise
 
 
 def load_config(path="config/project.yaml"):
@@ -17,7 +16,7 @@ def load_config(path="config/project.yaml"):
 
 def beep():
     winsound.PlaySound(
-        str(Path("../notify.wav").resolve()),
+        str(Path("notify.wav").resolve()),
         winsound.SND_FILENAME
     )
 
@@ -39,16 +38,6 @@ def to_image(n, is_1x1=True):
 def tensor_to_jpg(n, name, is_1x1=True):
     n = to_image(n, is_1x1)
     to_pil_image(n).save(name)
-
-def basic_noise_pair(loader, device):
-    for image in loader:
-        image = image.to(device)
-        tensor_to_jpg(image, "basic.jpg", is_1x1=False)
-        image = add_noise(image)
-        image = image.clamp(0, 1)
-        tensor_to_jpg(image, "noisy.jpg", is_1x1=False)
-        break
-    return
 
 def save_cnn_grid(tensors=[]):
     tiles = []
@@ -91,3 +80,33 @@ def get_criterion(cfg_loss):
         return nn.SmoothL1Loss(beta=delta)
 
     raise ValueError(f"Unknown loss: {name}")
+
+def get_psnr(pred, target, max_val=1.0):
+    mse = torch.mean((pred - target) ** 2)
+    return 10 * torch.log10(max_val ** 2 / mse)
+
+def plot_curves(curves, labels=None, title="Metrics",
+                xlabel="step", ylabel="value",
+                logy=False):
+    """
+    curves: list[list[float]]
+    labels: list[str] | None
+    """
+    if labels is None:
+        labels = [f"curve_{i}" for i in range(len(curves))]
+
+    for y, label in zip(curves, labels):
+        if y:
+            plt.plot(range(len(y)), y, label=label)
+
+    if logy:
+        plt.yscale("log")
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"data/plots/{title}.jpg")
+    plt.show()

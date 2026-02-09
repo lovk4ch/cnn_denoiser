@@ -141,7 +141,7 @@ class DenoiseTrainer:
         self.criterion = get_criterion(cfg["train"])
         self.optim = torch.optim.Adam(self.model.parameters(), lr=train.get("lr"))
 
-        self.load_weights()
+        self.load_weights(device)
 
         if self.TRAIN_MODE:
             self.model.train()
@@ -162,16 +162,19 @@ class DenoiseTrainer:
                 grad_norm += p.grad.detach().pow(2).sum().item()
         return grad_norm ** 0.5
 
-    def __call__(self, batch: Tensor) -> Tuple[Tensor, Tensor]:
-        # +[0..1]
-        with torch.no_grad():
-            noisy = add_noise(batch)
-        # [-1..1]
-        batch = (batch * 2 - 1)
-        # [-1..1]
-        noisy = (noisy * 2 - 1)
+    def __call__(self, batch: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        noisy = None
 
         if self.TRAIN_MODE:
+            # +[0..1]
+            with torch.no_grad():
+                noisy = add_noise(batch)
+
+            # [-1..1]
+            batch = (batch * 2 - 1)
+            # [-1..1]
+            noisy = (noisy * 2 - 1)
+
             base_noise = noisy - batch
             res_noise = self.model(noisy)
             clean = (noisy - res_noise).clamp(-1, 1)
@@ -184,20 +187,14 @@ class DenoiseTrainer:
 
         else:
             with torch.no_grad():
-                res_noise = self.model(noisy)
-                clean = (noisy - res_noise).clamp(-1, 1)
+                # [-1..1]
+                batch = (batch * 2 - 1)
+                res_noise = self.model(batch)
+                clean = (batch - res_noise).clamp(-1, 1)
 
-        return noisy, clean
+        return batch, noisy, clean
 
-    def save(self):
-        try:
-            Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
-            torch.save(self.model.state_dict(), self.model_path)
-            print(f"✔️ Model checkpoint updated successfully.")
-        except Exception as e:
-            print(f"❌ Failed to save model: {e}")
-
-    def load_weights(self):
+    def load_weights(self, device):
         if not self.model_path.exists():
             print(f"⚠️ Model {self.model_path.name} not found, training from scratch.")
             return False
@@ -206,7 +203,7 @@ class DenoiseTrainer:
             state = torch.load(
                 self.model_path,
                 weights_only=True,
-                map_location=self.device
+                map_location=device
             )
             self.model.load_state_dict(state)
             print(f"✔️ Model {self.model_path.name} weights loaded.")
@@ -216,3 +213,11 @@ class DenoiseTrainer:
             print(f"❌ Failed to load weights: {e}")
             print(f"⚠️ Training from scratch.")
             return False
+
+    def save_weights(self):
+        try:
+            Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
+            torch.save(self.model.state_dict(), self.model_path)
+            print(f"✔️ Model {self.model_path.name} checkpoint updated successfully.")
+        except Exception as e:
+            print(f"❌ Failed to save model {self.model_path.name} : {e}")
