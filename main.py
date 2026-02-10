@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from src.dataset import ImageDataset
 from src.dncnn import DenoiseTrainer
-from src.utils import tensor_to_jpg, beep, load_config, get_psnr
+from src.utils import tensor_to_jpg, beep, load_config, get_psnr, padding_cat
 
 transform = transforms.Compose([
     transforms.ToTensor()
@@ -42,14 +42,14 @@ def main():
     train_dataset = ImageDataset(
         root=cfg["data"]["train_dir"],
         transform=transform,
-        crop_size=[512, 768, 1024],
+        crop_size=cfg["train"]["train_crop"],
     )
 
     test_dataset = ImageDataset(
         root=cfg["data"]["test_dir"],
         transform=transform,
-        crop_size=[512],
         samples_per_epoch=1,
+        crop_size=cfg["train"]["test_crop"],
     )
 
     train_loader = DataLoader(
@@ -71,11 +71,11 @@ def main():
     )
 
     mode = cfg["train"]["mode"]
+    epochs = cfg["train"]["epochs"]
+
     if mode != "inference":
-        epochs = cfg["train"]["epochs"]
         data_loader = train_loader
     else:
-        epochs = 1
         data_loader = test_loader
 
     index = 1
@@ -84,7 +84,7 @@ def main():
     # --- Обучение / тест ---
 
     for epoch in range(1, epochs + 1):
-        bar = tqdm(data_loader, desc=f"\033[99m{index}")
+        bar = tqdm(data_loader, desc=f"\033[99mepoch {epoch}")
 
         g_loss = 0
         g_psnr = 0
@@ -112,7 +112,8 @@ def main():
                 out = [t for t in out if t is not None]
                 rows = []
                 for i in range(batch.size(0)):
-                    row = torch.cat(out, dim=3)
+                    border = int(batch.size(3) * 10 // 1024)
+                    row = padding_cat(out, border=border)
                     rows.append(row)
                     grid = torch.cat(rows, dim=1)
                     tensor_to_jpg(grid, f'{cfg["data"]["cache_dir"]}step_res_{index}.jpg')
