@@ -1,9 +1,9 @@
 denoise:
   name: denoise
-  channels: 64
-  depth: 5
+  channels: 48
+  depth: 3
   kernel_size: 3
-  dilation: [1, 1, 1, 2, 1, 1, 1]
+  dilation: [1, 1, 2, 1, 1]
 
 restore:
   name: restore
@@ -12,18 +12,18 @@ restore:
 
 train:
   # denoise | restore | inference
-  mode: restore
+  mode: denoise
   epochs: 50
   batch_size: 1
   lr: 0.001
   # l1 | mse | huber | smooth_l1
   loss: l1
   cache_every: 25
-  crop_sizes: [128, 256, 384]
+  train_crop: [512, 768, 1024]
+  test_crop: [512]
 
 data:
   cache_dir: data/cache/
-  res_dir: data/res/
   test_dir: data/test/
   train_dir: data/train/
   model_dir: models/
