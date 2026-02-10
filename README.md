@@ -1,1 +1,128 @@
-# cnn_denoiser
+# CNN-based Image Denoiser
+*High-Performance Local-Context Neural Image Restoration Model*
+
+---
+
+## Project Overview
+
+**CNN-based Image Denoiser** is a neural network model for image denoising based on **convolutional neural networks (CNNs)**.
+The model efficiently restores images using **local patterns and textures**, making it ideal for **real-time and embedded systems** where speed and stability are critical.
+
+The project demonstrates a classic **low-level computer vision** approach, comparable to traditional filters and modern transformers.
+
+---
+
+## Objective
+
+* Additive noise removal (Gaussian/synthetic noise)
+* Local detail restoration
+
+Comparison with:
+* Classic filters (Gaussian, Median)
+* Baseline (Blur Filters)
+
+---
+
+## Model Architecture
+
+```
+Input Image
+   ↓
+Convolution Block × N
+   ↓
+Residual Connections
+   ↓
+BatchNorm + ReLU
+   ↓
+Final Convolution
+   ↓
+Denoised Image
+```
+
+---
+
+## Key Components
+
+* **3x3 / 5x5 convolution layers**
+* **Residual blocks** for a stable gradients
+* **ReLU / LeakyReLU activations**
+* **Batch Normalization**
+
+---
+
+## Advantages over Blur Filters
+
+### ❌ Classical Blur Filters
+
+* Gaussian / Median / Bilateral
+* Works only locally
+* Blurs the boundaries
+* Doesn't adapt to the scene structure
+
+### 🚀 Key Advantages
+
+* **Preserves local structures and textures**
+* **Adaptable to different noise levels**
+* **Fast inference suitable for embedded systems**
+
+### ✅ CNN-based Denoiser
+
+| Feature                       | Blur Filter | CNN |
+| ----------------------------- | ----------- | --- |
+| Local pattern recognition     | ⚡           | ✅   |
+| Edge / structure preservation | ❌           | ✅   |
+| Adaptive learning             | ❌           | ✅   |
+| Real-time inference           | ✅           | ⚡   |
+| Training on dataset           | ❌           | ✅   |
+
+### ⚠️ Trade-offs
+* Limited global context (patch-to-patch long-range)
+* Doesn't always perfectly reconstruct complex noise patterns
+
+---
+
+## 📊 Evaluation Metrics
+
+### Image Quality
+
+* **PSNR** — Peak Signal-to-Noise Ratio
+* **SSIM** — Structural Similarity Index
+
+---
+
+## Dataset
+
+* Synthetic noisy DSLR-images
+
+## Noise Model
+* Gaussian Noise (σ configurable)
+* Luminance ISO noise
+* Chroma noise
+* Various mixes of all types
+
+---
+
+## Tech Stack
+
+* 🐍 Python
+* 🔥 PyTorch
+* 🖥️ Custom CNN architecture
+* 📊 TensorBoard
+
+---
+
+## Key Takeaways
+
+* ✔️ Demonstrates **local-pattern-based denoising**
+* ✔️ Shows **practical use of CNNs in applied CV**
+* ✔️ Provides **baseline for comparison with transformer-based denoisers**
+* ✔️ Relevant for **Applied ML / Computer Vision roles**
+
+---
+
+## 🔀 Next Releases:
+
+* Add attention layers for extended context (CNN + Attention)
+* Move towards diffusion-based denoising
+* Add FiLM filters to adjust the level and type of noise
+* Add transformed-based restoration models net for the next improvement of out images
