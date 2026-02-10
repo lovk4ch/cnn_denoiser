@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 import winsound
 import yaml
 from matplotlib import pyplot as plt
@@ -39,7 +40,9 @@ def tensor_to_jpg(n, name, is_1x1=True):
     n = to_image(n, is_1x1)
     to_pil_image(n).save(name)
 
-def save_cnn_grid(tensors=[]):
+def save_cnn_grid(tensors=None):
+    if tensors is None:
+        tensors = []
     tiles = []
     for t in tensors:
         t = t.detach().cpu()
@@ -54,6 +57,23 @@ def save_cnn_grid(tensors=[]):
     grid = make_grid(tiles, nrow=6)
     img = to_pil_image(grid)
     img.save(f"data/cache/grid.jpg")
+
+def padding_cat(images, border=10, value=1.0):
+    """
+    images: list of tensors [1, 3, H, W]
+    return: [1, 3, H+2b, N*(W+2b)]
+    """
+    bordered = []
+    for img in images:
+        # pad = (left, right, top, bottom)
+        img_b = F.pad(
+            img,
+            pad=(border, border, border, border),
+            value=value
+        )
+        bordered.append(img_b)
+
+    return torch.cat(bordered, dim=3)  # dim=3 → ширина
 
 def last_file_index(path):
     files = [p for p in Path(path).iterdir() if p.is_file()]
@@ -83,7 +103,7 @@ def get_criterion(cfg_loss):
 
 def get_psnr(pred, target, max_val=1.0):
     mse = torch.mean((pred - target) ** 2)
-    return 10 * torch.log10(max_val ** 2 / mse)
+    return 10 * torch.log10(max_val ** 2 / mse).item()
 
 def plot_curves(curves, labels=None, title="Metrics",
                 xlabel="step", ylabel="value",
