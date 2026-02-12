@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.dataset import ImageDataset
-from src.dncnn import DenoiseTrainer
-from src.utils import tensor_to_jpg, beep, load_config, get_psnr, padding_cat
+from dataset import ImageDataset
+from dncnn import DenoiseTrainer
+from utils import tensor_to_jpg, beep, load_config, get_psnr, padding_cat
 
 transform = transforms.Compose([
     transforms.ToTensor()

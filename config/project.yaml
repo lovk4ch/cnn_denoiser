@@ -1,9 +1,9 @@
 denoise:
   name: denoise
-  channels: 48
-  depth: 3
+  channels: 64
+  depth: 5
   kernel_size: 3
-  dilation: [1, 1, 2, 1, 1]
+  dilation: [1, 1, 1, 2, 1, 1, 1]
 
 restore:
   name: restore

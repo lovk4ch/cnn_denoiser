@@ -4,8 +4,8 @@ from typing import Tuple
 import torch
 from torch import nn, Tensor
 
-from src.noise import add_noise
-from src.utils import get_criterion
+from noise import add_noise
+from utils import get_criterion
 
 
 class ResBlock(nn.Module):
