@@ -1,10 +1,11 @@
 import re
+import sys
 from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-import winsound
 import yaml
+
 from matplotlib import pyplot as plt
 from torch import nn
 from torchvision.transforms.v2.functional import to_pil_image
@@ -16,9 +17,11 @@ def load_config(path="config/project.yaml"):
         return yaml.safe_load(f)
 
 def beep():
-    winsound.PlaySound(
-        str(Path("notify.wav").resolve()),
-        winsound.SND_FILENAME
+    if sys.platform.startswith('win'):
+        import winsound
+        winsound.PlaySound(
+            str(Path("notify.wav").resolve()),
+            winsound.SND_FILENAME
     )
 
 def normalize(n):

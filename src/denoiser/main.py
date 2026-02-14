@@ -33,7 +33,7 @@ def main():
     cache_dir = Path(cfg["data"]["cache_dir"])
 
     if cfg["global"]["clean_cache"]:
-        shutil.rmtree(cache_dir)
+        shutil.rmtree(cache_dir, ignore_errors=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_every = cfg["train"]["cache_every"]
 
@@ -57,7 +57,7 @@ def main():
         pin_memory=True,
         batch_size=1,
         shuffle=True,
-        num_workers=4,
+        num_workers=1,
         drop_last=False,
     )
 
@@ -66,7 +66,7 @@ def main():
         pin_memory=True,
         batch_size=1,
         shuffle=False,
-        num_workers=4,
+        num_workers=1,
         drop_last=False,
     )
 
