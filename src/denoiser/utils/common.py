@@ -4,17 +4,19 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-import yaml
-
 from matplotlib import pyplot as plt
 from torch import nn
+from torchvision.transforms import transforms
 from torchvision.transforms.v2.functional import to_pil_image
 from torchvision.utils import make_grid
 
 
-def load_config(path="config/project.yaml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
+def get_transform():
+    return transforms.Compose([ transforms.ToTensor() ])
+
+def get_psnr(pred, target, max_val=1.0):
+    mse = torch.mean((pred - target) ** 2)
+    return 10 * torch.log10(max_val ** 2 / mse).item()
 
 def beep():
     if sys.platform.startswith('win'):
@@ -90,24 +92,6 @@ def last_file_index(path):
     last = max(files, key=num_key)
     return num_key(last)
 
-def get_criterion(cfg_loss):
-    name = cfg_loss["loss"].lower()
-
-    if name == "l1":
-        return nn.L1Loss()
-    if name == "mse":
-        return nn.MSELoss()
-    if name in ("huber", "smooth_l1"):
-        # PyTorch: SmoothL1Loss ~= Huber с параметром beta (в новых версиях)
-        delta = cfg_loss.get("huber_delta", 1.0)
-        return nn.SmoothL1Loss(beta=delta)
-
-    raise ValueError(f"Unknown loss: {name}")
-
-def get_psnr(pred, target, max_val=1.0):
-    mse = torch.mean((pred - target) ** 2)
-    return 10 * torch.log10(max_val ** 2 / mse).item()
-
 def plot_curves(curves, labels=None, title="Metrics",
                 xlabel="step", ylabel="value",
                 logy=False):
@@ -133,3 +117,17 @@ def plot_curves(curves, labels=None, title="Metrics",
     plt.tight_layout()
     plt.savefig(f"data/plots/{title}.jpg")
     plt.show()
+
+def get_criterion(cfg_loss):
+    name = cfg_loss["loss"].lower()
+
+    if name == "l1":
+        return nn.L1Loss()
+    if name == "mse":
+        return nn.MSELoss()
+    if name in ("huber", "smooth_l1"):
+        # PyTorch: SmoothL1Loss ~= Huber с параметром beta (в новых версиях)
+        delta = cfg_loss.get("huber_delta", 1.0)
+        return nn.SmoothL1Loss(beta=delta)
+
+    raise ValueError(f"Unknown loss: {name}")

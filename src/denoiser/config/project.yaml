@@ -26,7 +26,7 @@ data:
   cache_dir: data/cache/
   test_dir: data/test/
   train_dir: data/train/
-  model_dir: models/
+  ckpt_dir: checkpoints/
 
   restore_path: restore.pth
   restore_checkpoint: restore_cpt.pth
@@ -36,5 +36,3 @@ data:
 
 global:
   clean_cache: True
-  device: cuda
-  log_color: "\033[94m"

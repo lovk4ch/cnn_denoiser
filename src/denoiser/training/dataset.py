@@ -4,12 +4,15 @@ import torch
 from PIL import Image
 from sympy.core.random import shuffle
 from torch.utils.data import Dataset
-from torchvision import transforms
 from torchvision.transforms.functional import resize
+
+from denoiser.utils.common import get_transform
 
 
 class ImageDataset(Dataset):
-    def __init__(self, root, crop_size=[256], samples_per_epoch=100, transform=transforms.ToTensor()):
+    def __init__(self, root, crop_size=None, samples_per_epoch=100, transform=get_transform()):
+        if crop_size is None: crop_size = [256]
+
         self.paths = [p for p in Path(root).iterdir()
                        if p.suffix.lower() in {'.png', '.jpg', '.jpeg'}]
         self.crop_size = crop_size
