@@ -32,7 +32,7 @@ class ResBlock(nn.Module):
         return self.act(x + self.net(x))   # skip + activation
 
 
-class Denoise(nn.Module):
+class Denoiser(nn.Module):
     def __init__(self, cfg: dict | None = None):
         super().__init__()
         cfg = cfg or {}
@@ -44,7 +44,6 @@ class Denoise(nn.Module):
         k = int(cfg.get("kernel_size", 3))
         use_norm: bool = bool(cfg.get("use_norm", False))
         norm_groups: int = int(cfg.get("norm_groups", 8))
-
 
         # dilation: список или число
         dil = cfg.get("dilation", 1)

@@ -11,8 +11,14 @@ from torchvision.transforms.v2.functional import to_pil_image
 from torchvision.utils import make_grid
 
 
-def get_transform():
-    return transforms.Compose([ transforms.ToTensor() ])
+def get_transform(normalize=False):
+    """
+    :param normalize: whether the image is converted to the range [-1, 1]
+    """
+    return transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5]) if normalize else None,
+    ])
 
 def get_psnr(pred, target, max_val=1.0):
     mse = torch.mean((pred - target) ** 2)
@@ -25,12 +31,7 @@ def beep():
             str(Path("notify.wav").resolve()),
             winsound.SND_FILENAME
     )
-
-def normalize(n):
-    m = n.abs().amax(dim=(1, 2), keepdim=True) + 1e-8
-    n = (n / m) * 0.5 + 0.5
-
-    return n
+    return
 
 def to_image(n, is_1x1=True):
     n = n.detach().cpu().squeeze(0)
@@ -41,9 +42,13 @@ def to_image(n, is_1x1=True):
 
     return n
 
-def tensor_to_jpg(n, name, is_1x1=True):
+def tensor_to_jpg(n, is_1x1=True):
     n = to_image(n, is_1x1)
-    to_pil_image(n).save(name)
+    return to_pil_image(n)
+
+def save_tensor_as_jpg(n, name, is_1x1=True):
+    tensor_to_jpg(n, is_1x1).save(name)
+    return
 
 def save_cnn_grid(tensors=None):
     if tensors is None:

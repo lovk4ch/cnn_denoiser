@@ -1,15 +1,9 @@
 # src/denoiser/__init__.py
 
-# from .models import build_model
+from .models.denoiser import Denoiser
 from .training.trainer import Trainer
-# from .inference.predictor import Predictor
-# from .utils.preprocess import preprocess_image, postprocess_image
 
-# список объектов, которые будут видны при import *
 __all__ = [
-    # "build_model",
+    "Denoiser",
     "Trainer",
-    # "Predictor",
-    # "preprocess_image",
-    # "postprocess_image",
 ]

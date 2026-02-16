@@ -56,7 +56,7 @@ class Up(nn.Module):
         return self.block(x)
 
 
-class UNetRestore(nn.Module):
+class Restorer(nn.Module):
     """
     Мини-U-Net на 3 уровня.
     base=32 (или 48).

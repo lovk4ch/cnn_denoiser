@@ -7,10 +7,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import ImageDataset
-from ..models.denoise import Denoise
+from ..models.denoiser import Denoiser
 from ..utils.model import save_weights, load_weights, load_config, get_device
 from ..utils.noise import add_noise
-from ..utils.common import get_criterion, get_psnr, tensor_to_jpg, padding_cat, beep, \
+from ..utils.common import get_criterion, get_psnr, save_tensor_as_jpg, padding_cat, beep, \
     get_transform
 
 
@@ -22,7 +22,7 @@ class Trainer:
         self.device = get_device()
         self.loss = None
 
-        self.model = Denoise(self.cfg["denoise"]).to(self.device)
+        self.model = Denoiser(self.cfg["denoise"]).to(self.device)
         self.criterion = get_criterion(self.cfg["train"])
         self.optim = torch.optim.Adam(self.model.parameters(), lr=self.cfg["train"]["lr"])
 
@@ -121,7 +121,7 @@ class Trainer:
                         row = padding_cat(out, border=border)
                         rows.append(row)
                         grid = torch.cat(rows, dim=1)
-                        tensor_to_jpg(grid, f'{self.cfg["data"]["cache_dir"]}step_res_{index}.jpg')
+                        save_tensor_as_jpg(grid, f'{self.cfg["data"]["cache_dir"]}step_res_{index}.jpg')
 
                 index += 1
             print()
