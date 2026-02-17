@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNN Image Denoiser</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<div class="floating-container">
+  <div class="mirror-frame" id="frame">
+    <span style="color: #aaa;">Mirror</span>
+  </div>
+  <button class="glossy-button" id="choose-btn">CHOOSE IMAGE</button>
+  <input type="file" id="file-input" accept="image/*">
+</div>
+
+<script>
+const FADE_DURATION = 2000;
+
+let selectedFile = null;
+const frame = document.querySelector('.mirror-frame');
+const chooseBtn = document.querySelector('#choose-btn');
+const fileInput = document.querySelector('#file-input');
+
+// Функция добавления img с плавным появлением
+function addImage(src) {
+    const img = document.createElement('img');
+    img.src = src;
+
+    // Ставим изначально opacity 0 через класс или стиль
+    frame.innerHTML = '';
+    frame.appendChild(img);
+
+    // Ждём полной загрузки
+    img.onload = () => {
+        // используем requestAnimationFrame для гарантии перерисовки
+        requestAnimationFrame(() => {
+            img.classList.add('fading-in');
+        });
+    };
+}
+
+// Обработчик выбора файла
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    selectedFile = file;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        addImage(event.target.result);
+    };
+    reader.readAsDataURL(file);
+
+    chooseBtn.textContent = 'DENOISE';
+});
+
+// Функция отправки на сервер с анимацией
+async function sendToServer(file) {
+    const currentImg = frame.querySelector('img');
+
+    // блокировка кнопки
+    chooseBtn.disabled = true;
+
+    if (currentImg) {
+        currentImg.classList.remove('fading-in');
+        currentImg.classList.add('fading-out');
+        await new Promise(resolve => setTimeout(resolve, FADE_DURATION));
+    }
+
+    // отправка на сервер
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        chooseBtn.textContent = 'Processing...';
+        const response = await fetch('/predict', { method: 'POST', body: formData });
+
+        if (!response.ok) throw new Error('Server error');
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        addImage(url); // плавное появление нового img
+        chooseBtn.textContent = 'CHOOSE IMAGE';
+        selectedFile = null;
+    } catch (err) {
+        console.error(err);
+        chooseBtn.textContent = 'Error! Retry';
+    } finally {
+        chooseBtn.disabled = false; // разблокировка кнопки
+    }
+}
+
+// Обработчик кнопки
+chooseBtn.addEventListener('click', () => {
+    if (!selectedFile) {
+        fileInput.click();
+    } else {
+        sendToServer(selectedFile);
+    }
+});
+</script>
+
+</body>
+</html>

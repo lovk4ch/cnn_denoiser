@@ -1,14 +1,19 @@
-import base64
 import io
-
-from fastapi import FastAPI, UploadFile
 from contextlib import asynccontextmanager
-from PIL import Image
+from pathlib import Path
+
 import torch
+from PIL import Image
+from fastapi import FastAPI, UploadFile
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from denoiser import Denoiser
 from denoiser.utils.common import get_transform, tensor_to_jpg
 from denoiser.utils.model import load_config, get_device, load_weights
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+FRONTEND_DIR = BASE_DIR / "static"
 
 
 @asynccontextmanager
@@ -27,7 +32,14 @@ async def lifespan(_app: FastAPI):
     del _app.state.model
     torch.cuda.empty_cache()
 
+
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+
+@app.get("/")
+async def root():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.post("/predict")
@@ -41,12 +53,15 @@ async def predict(file: UploadFile):
         out = (image - model(image)).clamp(-1, 1)
 
     out = tensor_to_jpg(out)
+
     buffer = io.BytesIO()
-    out.save(buffer, format="PNG")
-    encoded = base64.b64encode(buffer.getvalue()).decode()
+    out.save(buffer, format="JPEG")
+    buffer.seek(0)
 
-    decoded_bytes = base64.b64decode(encoded)
-    image = Image.open(io.BytesIO(decoded_bytes))
-    image.show()
-
-    return {"image": encoded}
+    return StreamingResponse(
+        buffer,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"attachment; filename=denoised_{file.filename}"
+        }
+    )
