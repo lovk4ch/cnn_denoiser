@@ -51,9 +51,7 @@ async def predict(file: UploadFile):
 
     with torch.no_grad():
         image = (image - model(image)).clamp(-1, 1)
-        print(image.grad)
         image = image.detach()
-        print(image.grad)
         out = (image - model(image)).clamp(-1, 1)
 
     out = tensor_to_jpg(out)
