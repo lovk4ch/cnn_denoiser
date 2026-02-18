@@ -50,6 +50,10 @@ async def predict(file: UploadFile):
     image = transform(image).to(app.state.device)
 
     with torch.no_grad():
+        image = (image - model(image)).clamp(-1, 1)
+        print(image.grad)
+        image = image.detach()
+        print(image.grad)
         out = (image - model(image)).clamp(-1, 1)
 
     out = tensor_to_jpg(out)
@@ -60,7 +64,7 @@ async def predict(file: UploadFile):
 
     return StreamingResponse(
         buffer,
-        media_type="image/png",
+        media_type="image/jpg",
         headers={
             "Content-Disposition": f"attachment; filename=denoised_{file.filename}"
         }
