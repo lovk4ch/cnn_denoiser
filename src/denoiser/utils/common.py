@@ -15,10 +15,10 @@ def get_transform(normalize=False):
     """
     :param normalize: whether the image is converted to the range [-1, 1]
     """
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5]) if normalize else None,
-    ])
+    return transforms.Compose(
+        [transforms.ToTensor()] +
+        ([transforms.Normalize(mean=[0.5], std=[0.5])] if normalize else [])
+    )
 
 def get_psnr(pred, target, max_val=1.0):
     mse = torch.mean((pred - target) ** 2)

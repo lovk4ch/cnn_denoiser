@@ -16,6 +16,7 @@ def load_config(path=None):
 
 def load_weights(model, cfg, device):
     path = Path(cfg["data"]["ckpt_dir"]) / cfg["data"]["denoise_path"]
+    print(f"Loading {Path.cwd() / path}")
 
     if not path.exists():
         print(f"⚠️ Model {path.name} not found, training from scratch.")

@@ -25,6 +25,22 @@ const frame = document.querySelector('.mirror-frame');
 const chooseBtn = document.querySelector('#choose-btn');
 const fileInput = document.querySelector('#file-input');
 
+const BACK_FOLDER = "static/img/back/";           // например: "photos/", "backgrounds/", "" (та же папка)
+const BACK_IMAGES = [
+  "1.jpg",
+  "2.jpg",
+  "3.jpg",
+]
+
+function setRandomBackground() {
+    const randomFile = BACK_FOLDER + BACK_IMAGES[Math.floor(Math.random() * BACK_IMAGES.length)];
+
+    // Самый надёжный способ — через backgroundImage
+    document.body.style.backgroundImage = `
+        url('${randomFile}')
+    `;
+}
+
 // Функция добавления img с плавным появлением
 function addImage(src) {
     const img = document.createElement('img');
@@ -103,6 +119,8 @@ chooseBtn.addEventListener('click', () => {
         sendToServer(selectedFile);
     }
 });
+
+window.addEventListener("load", setRandomBackground);
 </script>
 
 </body>

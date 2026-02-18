@@ -26,7 +26,7 @@ data:
   cache_dir: data/cache/
   test_dir: data/test/
   train_dir: data/train/
-  ckpt_dir: ../checkpoints/
+  ckpt_dir: checkpoints/
 
   restore_path: restore.pth
   restore_checkpoint: restore_cpt.pth
