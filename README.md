@@ -2,7 +2,7 @@
 *High-Performance Local-Context Neural Image Restoration Model*
 
 <div align="center">
-  <a href="https://your-real-url.onrender.com">
+  <a href="https://cnn-image-denoiser.onrender.com">
     <b>Live demo is available here</a>
     <br>
   ❗️ Note: try to use images lower than 512x512 to prevent memory overrun
