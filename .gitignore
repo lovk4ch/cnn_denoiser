@@ -4,9 +4,11 @@ __pycache__/
 *$py.class
 
 # Custom project
+checkpoints/**
 data/
 .idea/
 backup/
+!checkpoints/*
 
 # C extensions
 *.so
