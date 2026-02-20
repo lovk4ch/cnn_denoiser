@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from denoiser import Denoiser
-from denoiser.utils.common import get_transform, tensor_to_jpg
+from denoiser.utils.common import img_to_tensor, tensor_to_img
 from denoiser.utils.model import load_config, get_device, load_weights
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -45,7 +45,7 @@ async def root():
 @app.post("/predict")
 async def predict(file: UploadFile):
     image = Image.open(file.file).convert("RGB")
-    transform = get_transform(normalize=True)
+    transform = img_to_tensor(normalize=True, max_size=460)
     model = app.state.model
     image = transform(image).to(app.state.device)
 
@@ -54,7 +54,7 @@ async def predict(file: UploadFile):
         image = image.detach()
         out = (image - model(image)).clamp(-1, 1)
 
-    out = tensor_to_jpg(out)
+    out = tensor_to_img(out)
 
     buffer = io.BytesIO()
     out.save(buffer, format="JPEG")

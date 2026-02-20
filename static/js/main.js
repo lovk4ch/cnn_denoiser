@@ -13,6 +13,10 @@ const fileInput = document.getElementById('file-input');
 const style = getComputedStyle(document.documentElement);
 const fadeDuration = parseFloat(style.getPropertyValue('--fade-duration')) * 1000;
 
+const sliderInput = document.getElementById('iterations-slider');
+const scaleLabels = document.querySelectorAll('.scale-label');
+
+let selectedIterations = 1;
 let selectedFile = null;
 
 
@@ -21,6 +25,26 @@ function setRandomBackground() {
     const randomImg = BACK_IMAGES[Math.floor(Math.random() * BACK_IMAGES.length)];
     document.body.style.backgroundImage = `url('${BACK_FOLDER}${randomImg}')`;
 }
+
+// Функция для обновления визуального состояния шкалы
+function updateSliderVisuals(value) {
+    scaleLabels.forEach(label => {
+        // parseInt нужен, так как атрибуты и value инпута - это строки
+        if (parseInt(label.dataset.value) === value) {
+            label.classList.add('active');
+        } else {
+            label.classList.remove('active');
+        }
+    });
+}
+
+// Слушаем движение ползунка в реальном времени ('input')
+sliderInput.addEventListener('input', (e) => {
+    const newValue = parseInt(e.target.value);
+    selectedIterations = newValue;
+    updateSliderVisuals(newValue);
+    // console.log("Выбрано итераций:", selectedIterations); // Для отладки
+});
 
 // Плавная смена картинки
 function updateImage(src) {
@@ -69,6 +93,7 @@ async function sendToServer(file) {
     try {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('iterations', selectedIterations);
 
         chooseBtn.textContent = 'PROCESSING...';
         const response = await fetch('/predict', { method: 'POST', body: formData });

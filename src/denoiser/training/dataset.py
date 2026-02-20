@@ -6,11 +6,11 @@ from sympy.core.random import shuffle
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import resize
 
-from denoiser.utils.common import get_transform
+from denoiser.utils.common import img_to_tensor
 
 
 class ImageDataset(Dataset):
-    def __init__(self, root, crop_size=None, samples_per_epoch=100, transform=get_transform()):
+    def __init__(self, root, crop_size=None, samples_per_epoch=100, transform=img_to_tensor()):
         if crop_size is None: crop_size = [256]
 
         self.paths = [p for p in Path(root).iterdir()

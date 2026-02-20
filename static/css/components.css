@@ -2,13 +2,27 @@
 .sharpen-overlay {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 0;
     pointer-events: none;
     background-image:
-        repeating-linear-gradient(to bottom, transparent 0 1px, rgba(0,0,0,0.08) 1px 2px),
-        repeating-linear-gradient(to right, transparent 0 1px, rgba(0,0,0,0.06) 1px 2px);
-    mix-blend-mode: overlay;
-    opacity: 0.5;
+        repeating-linear-gradient(to bottom, transparent 0 1px, rgba(155, 155, 155, 0.14) 6px 6px);
+    mix-blend-mode: normal;
+    opacity: 1;
+}
+
+/* ----- Header text -------- */
+.demo-label {
+    position: absolute;
+    top: 5%;
+    left: 3%;
+    color: var(--neon-color);
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    opacity: 1.0;
+    line-height: 1.2;
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* ----- Container ---------- */
@@ -16,7 +30,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: float 6s ease-in-out infinite alternate;
+    margin-top: 100px;
 }
 
 /* ----- Mirror frame ------- */
@@ -26,7 +40,7 @@
     border: 2px solid #aaa;
     border-radius: 25px;
     background: linear-gradient(145deg, #222, #444);
-    box-shadow: 0 0 30px rgba(255,255,255,0.2);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -34,10 +48,11 @@
     margin-bottom: 20px;
     position: relative;
     transition: box-shadow 0.3s ease;
+    animation: float 6s ease-in-out infinite alternate;
 }
 
 .mirror-frame img:hover {
-    box-shadow: 0 0 50px rgba(255,255,255,0.45) inset;
+    box-shadow: 0 0 50px rgba(255, 255, 255, 0.45) inset;
 }
 
 .mirror-frame img {
@@ -52,7 +67,7 @@
 .mirror-frame img.fading-out { opacity: 0; }
 
 .mirror-frame:hover {
-    box-shadow: 0 0 50px rgba(255,255,255,0.4);
+    box-shadow: 0 0 50px rgba(255, 255, 255, 0.4);
 }
 
 /* Затемнение картинки при обработке */
@@ -86,12 +101,13 @@
     font-size: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    animation: float 6s ease-in-out infinite alternate;
 }
 
 .glossy-button:hover {
     background: linear-gradient(145deg, #666, #aaa);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
 
 /* ----- Image processing --- */

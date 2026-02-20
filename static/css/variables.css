@@ -2,4 +2,7 @@
 :root {
     --fade-duration: 1.0s;
     --neon-color: #6f00ff;
+    --neon-cyan: #00f3ff;
+    --track-height: 6px;
+    --thumb-size: 24px;
 }

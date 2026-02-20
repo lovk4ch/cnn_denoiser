@@ -1,0 +1,129 @@
+/* --- Основные стили контейнера --- */
+.iterations-container {
+    width: 100%;
+    max-width: 400px;
+    margin-top: 90px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.iterations-title {
+    color: var(--neon-color);
+    font-family: monospace;
+    font-size: 16px;
+    letter-spacing: 2px;
+    margin-bottom: 15px;
+    text-shadow: 0 0 5px var(--neon-color);
+}
+
+.range-wrapper {
+    position: relative;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Стилизация INPUT TYPE=RANGE --- */
+/* Сбрасываем стандартные стили браузера */
+#iterations-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: var(--track-height);
+    background: rgba(255, 255, 255, 0.1); /* Тусклый фон трека */
+    border-radius: 5px;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5) inset;
+    border: 1px solid rgba(176, 38, 255, 0.3);
+    position: absolute; /* Накладываем поверх меток */
+    top: 0;
+    z-index: 5;
+    margin: 0;
+}
+
+/* Стилизация "бегунка" (Thumb) для Chrome/Safari/Edge */
+#iterations-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--thumb-size);
+    height: var(--thumb-size);
+    border-radius: 50%;
+    background: var(--neon-cyan);
+    cursor: pointer;
+    /* Мощное двойное свечение */
+    box-shadow:
+        0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-color),
+        inset 0 0 5px rgba(255,255,255,0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* То же самое для Firefox */
+#iterations-slider::-moz-range-thumb {
+    width: var(--thumb-size);
+    height: var(--thumb-size);
+    border: none;
+    border-radius: 50%;
+    background: var(--neon-cyan);
+    cursor: pointer;
+    box-shadow:
+        0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-color),
+        inset 0 0 5px rgba(255,255,255,0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Эффект при наведении и нажатии на бегунок */
+#iterations-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.25);
+    box-shadow: 0 0 15px var(--neon-cyan), 0 0 30px var(--neon-color);
+}
+#iterations-slider:active::-webkit-slider-thumb {
+    transform: scale(0.95);
+}
+
+
+/* --- Стилизация подписей шкалы (Labels) --- */
+.scale-labels {
+    position: absolute;
+    top: 25px; /* Сдвигаем цифры под трек */
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 5px; /* Небольшой отступ от краев */
+    pointer-events: none; /* Чтобы клики проходили сквозь цифры к инпуту */
+}
+
+.scale-label {
+    font-family: monospace;
+    font-size: 16px;
+    color: #555; /* Тусклый цвет неактивных цифр */
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+/* Активная цифра (добавляется JS-ом) */
+.scale-label.active {
+    color: var(--neon-cyan);
+    text-shadow:
+        0 0 5px var(--neon-cyan),
+        0 0 10px var(--neon-color);
+    font-weight: bold;
+}
+
+/* Светящаяся точка над активной цифрой на треке */
+.scale-label.active::before {
+    content: '';
+    position: absolute;
+    top: -25px; /* Поднимаем на уровень трека */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--neon-cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--neon-cyan);
+    opacity: 0.7;
+}

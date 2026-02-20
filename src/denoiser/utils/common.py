@@ -3,22 +3,63 @@ import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional
 from matplotlib import pyplot as plt
 from torch import nn
-from torchvision.transforms import transforms
-from torchvision.transforms.v2.functional import to_pil_image
+from torch.nn.functional import pad
+from torchvision.transforms import transforms as T
+from torchvision.transforms.v2.functional import resize, to_pil_image
 from torchvision.utils import make_grid
 
 
-def get_transform(normalize=False):
+def img_to_tensor(normalize=False, max_size=-1):
     """
     :param normalize: whether the image is converted to the range [-1, 1]
+    :param max_size: shrink big images (for low-memory servers)
     """
-    return transforms.Compose(
-        [transforms.ToTensor()] +
-        ([transforms.Normalize(mean=[0.5], std=[0.5])] if normalize else [])
-    )
+    transforms = []
+
+    if max_size > 0:
+        transforms.append(
+            T.Lambda(lambda img: resize_max_size(img, max_size))
+        )
+
+    transforms.append(T.ToTensor())
+
+    if normalize:
+        transforms.append(T.Normalize(mean=[0.5], std=[0.5]))
+
+    return T.Compose(transforms)
+
+def resize_max_size(img, max_size):
+    w, h = img.size
+    max_dim = max(w, h)
+
+    if max_dim <= max_size:
+        return img
+
+    scale = max_size / max_dim
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+
+    return resize(img, [new_h, new_w])
+
+def to_image(n, is_1x1=True):
+    n = n.detach().cpu().squeeze(0)
+
+    if is_1x1:
+        n = (n + 1) / 2
+        n = n.clamp(0, 1)
+
+    return n
+
+def tensor_to_img(n, is_1x1=True):
+    n = to_image(n, is_1x1)
+    return to_pil_image(n)
+
+def save_tensor_as_jpg(n, name, is_1x1=True):
+    tensor_to_img(n, is_1x1).save(name)
+    return
 
 def get_psnr(pred, target, max_val=1.0):
     mse = torch.mean((pred - target) ** 2)
@@ -31,23 +72,6 @@ def beep():
             str(Path("notify.wav").resolve()),
             winsound.SND_FILENAME
     )
-    return
-
-def to_image(n, is_1x1=True):
-    n = n.detach().cpu().squeeze(0)
-
-    if is_1x1:
-        n = (n + 1) / 2
-        n = n.clamp(0, 1)
-
-    return n
-
-def tensor_to_jpg(n, is_1x1=True):
-    n = to_image(n, is_1x1)
-    return to_pil_image(n)
-
-def save_tensor_as_jpg(n, name, is_1x1=True):
-    tensor_to_jpg(n, is_1x1).save(name)
     return
 
 def save_cnn_grid(tensors=None):
@@ -76,7 +100,7 @@ def padding_cat(images, border=10, value=1.0):
     bordered = []
     for img in images:
         # pad = (left, right, top, bottom)
-        img_b = F.pad(
+        img_b = pad(
             img,
             pad=(border, border, border, border),
             value=value

@@ -11,7 +11,7 @@ from ..models.denoiser import Denoiser
 from ..utils.model import save_weights, load_weights, load_config, get_device
 from ..utils.noise import add_noise
 from ..utils.common import get_criterion, get_psnr, save_tensor_as_jpg, padding_cat, beep, \
-    get_transform
+    img_to_tensor
 
 
 class Trainer:
@@ -74,7 +74,7 @@ class Trainer:
         train_dataset = ImageDataset(
             crop_size=self.cfg["train"]["train_crop"],
             root=train_dir,
-            transform=get_transform(),
+            transform=img_to_tensor(),
         )
 
         train_loader = DataLoader(
