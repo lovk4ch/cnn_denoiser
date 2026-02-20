@@ -34,6 +34,10 @@
 }
 
 /* ----- Mirror frame ------- */
+.mirror-container {
+    animation: float 6s ease-in-out infinite alternate;
+}
+
 .mirror-frame {
     width: 400px;
     height: 400px;
@@ -48,7 +52,6 @@
     margin-bottom: 20px;
     position: relative;
     transition: box-shadow 0.3s ease;
-    animation: float 6s ease-in-out infinite alternate;
 }
 
 .mirror-frame img:hover {
@@ -102,7 +105,6 @@
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-    animation: float 6s ease-in-out infinite alternate;
 }
 
 .glossy-button:hover {

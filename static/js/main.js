@@ -9,7 +9,7 @@ const placeholder = document.getElementById('placeholder');
 const chooseBtn = document.getElementById('choose-btn');
 const fileInput = document.getElementById('file-input');
 
-// Считываем время анимации прямо из CSS (переводим 2.0s в 2000ms)
+// Считываем время анимации прямо из CSS
 const style = getComputedStyle(document.documentElement);
 const fadeDuration = parseFloat(style.getPropertyValue('--fade-duration')) * 1000;
 

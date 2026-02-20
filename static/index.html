@@ -17,17 +17,18 @@
     </div>
 
     <div class="floating-container">
+      <div class="mirror-container">
+        <div class="mirror-frame" id="frame">
+          <img id="display-image" src="" alt="" style="display: none;">
+          <span id="placeholder" style="color: #aaa;">
+            Mirror
+          </span>
+        </div>
 
-      <div class="mirror-frame" id="frame">
-        <img id="display-image" src="" alt="" style="display: none;">
-        <span id="placeholder" style="color: #aaa;">
-          Mirror
-        </span>
+        <button class="glossy-button" id="choose-btn">
+          CHOOSE IMAGE
+        </button>
       </div>
-
-      <button class="glossy-button" id="choose-btn">
-        CHOOSE IMAGE
-      </button>
 
       <div class="iterations-container">
         <div class="iterations-title">PROCESSING ITERATIONS</div>
@@ -39,12 +40,10 @@
             <span class="scale-label" data-value="3">3</span>
           </div>
         </div>
-
-        <input type="file" id="file-input" accept="image/*" hidden>
       </div>
+
+      <input type="file" id="file-input" accept="image/*" hidden>
     </div>
-
-
 
     <script src="static/js/main.js" defer></script>
   </body>
